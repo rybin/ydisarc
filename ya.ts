@@ -3,7 +3,6 @@ const REQUEST_HEADERS = {'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5
 
 const CYR_2_LAT_MAP = {"Ё":"YO","Й":"I","Ц":"TS","У":"U","К":"K","Е":"E","Н":"N","Г":"G","Ш":"SH","Щ":"SCH","З":"Z","Х":"H","Ъ":"'","ё":"yo","й":"i","ц":"ts","у":"u","к":"k","е":"e","н":"n","г":"g","ш":"sh","щ":"sch","з":"z","х":"h","ъ":"'","Ф":"F","Ы":"I","В":"V","А":"A","П":"P","Р":"R","О":"O","Л":"L","Д":"D","Ж":"ZH","Э":"E","ф":"f","ы":"i","в":"v","а":"a","п":"p","р":"r","о":"o","л":"l","д":"d","ж":"zh","э":"e","Я":"Ya","Ч":"CH","С":"S","М":"M","И":"I","Т":"T","Ь":"'","Б":"B","Ю":"YU","я":"ya","ч":"ch","с":"s","м":"m","и":"i","т":"t","ь":"'","б":"b","ю":"yu"};
 
-// const MAX_SIZE_TO_HASH = 10_000_000_000
 const MAX_SIZE_TO_HASH = 4_294_967_295
 
 class Bar {
@@ -141,27 +140,20 @@ async function list_files(url: string, path: string, folder_path: string, only_p
         }
 
         if (item.type == "dir") {
-            // const new_folder = folder_path + item.path
             const new_folder = folder_path + '/' + item.name
             await Deno.mkdir(new_folder, { recursive: true }) 
             await list_files(url, item.path, new_folder, only_print_hash, do_reentry_hashes)
 
         } else if (item.type == "file") {
-            // const name = folder_path + item.path
             let short_name
             if (encoder.encode(item.name).length >= 255) {
                 short_name = shorten_name(item.name, 255).join('')
-                // console.log('_-\'`', short_name)
-                // console.log('----', '++++', 'skiping, too long name:', item.name)
                 if (only_print_hash == Hash.NO)
                     console.log('----', 'too long name, shorten to:', short_name)
-                // continue
             }
-            // const name = folder_path + '/' + item.name
             const name = folder_path + '/' + ((short_name==undefined)?item.name:short_name)
 
             if (only_print_hash == Hash.MD5) {
-                // console.log(item.md5, '  ', "'"+name.replace('/\'/g', '\\\'')+"'")
                 console.log(item.md5 + '  ' + name)
                 continue
             }
@@ -203,14 +195,58 @@ async function list_files(url: string, path: string, folder_path: string, only_p
 }
 
 async function main() {
-    const target_url = "https://disk.yandex.ru/d/XXXXXXXXXXXXXX"
-    const folder = last(target_url.split('/'))
-    const do_reentry_hashes = false
-    const only_print_hash = Hash.NO
+    // url = "https://disk.yandex.ru/d/XXXXXXXXXXXXXX"
+    let url = undefined
+    let output = undefined
+    let recheck_sha256 = false
+    let only_print_hash = Hash.NO
 
-    // console.log('###### Starting from', folder)
-    await Deno.mkdir(folder, { recursive: true })
-    await list_files(target_url, "", folder, only_print_hash, do_reentry_hashes)
+    for (const arg of Deno.args) {
+        switch (arg) {
+        case '-h':
+            console.log('usage: deno run %file%.ts [-a] URL [OUTPUT]')
+            console.log('  URL')
+            console.log('    url for dist to download')
+            console.log('  OUTPUT')
+            console.log('    output folder')
+            console.log('    ')
+            console.log('  -a, --check-sha256-for-already-existing-files')
+            console.log('    Recheck sha256 for already downloaded files, when script rerun.')
+            Deno.exit()
+            break
+
+        case '-a':
+            /* falls through */
+        case '--check-sha256-for-already-existing-files':
+            recheck_sha256 = true
+            break
+
+        case '-n':
+            /* falls through */
+        case '--only-print-hash':
+            only_print_hash = Hash.SHA256
+
+        default:
+            if (url == undefined) {
+                url = arg
+            } else if (output == undefined) {
+                output = arg
+            }
+        }
+    }
+
+    if (url == undefined) {
+        Deno.exit()
+    }
+
+    if (output == undefined) {
+        output = last(url.split('/'))
+    }
+
+    console.log(url, output, check_sha256, recheck_sha256, only_print_hash)
+
+    await Deno.mkdir(output, { recursive: true })
+    await list_files(url, "", output, only_print_hash, recheck_sha256)
 }
 
 await main()
