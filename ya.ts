@@ -212,6 +212,8 @@ async function main() {
             console.log('    ')
             console.log('  -a, --check-sha256-for-already-existing-files')
             console.log('    Recheck sha256 for already downloaded files, when script rerun.')
+            console.log('  -n, --only-print-hash')
+            console.log('    Do not download files, only print SHA256 hashes')
             Deno.exit()
             break
 
